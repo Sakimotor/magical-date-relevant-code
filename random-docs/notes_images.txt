@@ -1,0 +1,86 @@
+Paletted image: limited colors with a depth of n bits (= 2^n possible colors) affected to each pixel
+the amount of Bits Per Pixel is then the n value of the color depth
+Non-paletted image: each pixel is stores as an RGBA value
+
+PS1 colors: 16 bits; 5 bits per color and 1 bit for transparency (Semi Transparency Processing)
+
+Image size: BPP * width * height, so a 32x32 image made of 16 colors would take up 4 * 32 * 32 = 4096 bits
+
+PS1 Render pipeline: Disc -> RAM -> VRAM -> FrameBuffer
+
+VRAM: 1024x512 image with a BPP of 15
+
+the VRAM will store two framebuffers, the loaded images (pixel data), and the color palettes
+
+Any image put on the framebuffer needs to be converted to 15bit
+
+Loading the xth pixel of an image that has a BPP of y into the framebuffer: we take the value z given by the y bits from offset x*y, convert it to int, and load the zth color from the color palette
+
+TIM file: ID, FLAG, CLUT, Pixel:
+
+ - ID: 10 00 00 00, the TIM signature 
+
+- FLAG (32-bits): indicates whether we use a CLUT or not, and how the pixels are handled in the .TIM
+	 - Bits 0-2: PMODE (0 = 4-bit CLUT, 1 = 8-bit CLUT,2 = 15-bit direct, 3 = 24-bit direct, 4 = Mixed )
+	 - Bit 3: CF (0 = No CLUT, 1 = has CLUT)
+	 - Bits 4-31: reserved (zeroes)
+	 
+ 
+- CLUT: Color Lookup Table/Color Palette:
+ 
+		- bnum (32-bits): whole CLUT block length, in bytes (includes bnum size): 12 + 2*CLUT_entries
+		- DX (16-bits): x coordinate in framebuffer
+		- DY (16-bits): y coordinate in  -> (DX,DY) is the CLUT location in VRAM (should normally never be changed)
+		- W (16-bits): CLUT width
+		- H (16-bits): CLUT height
+		- CLUT entry (16-bits) 1~n: color stored in position i. 
+			- STP/B,G,R is as follows (disabling translucent processing ignores STP bit): 
+				- 0/0,0,0 = transparent
+				- 0/X,X,X = not-transparent
+				- 1/X,X,X = semi-transparent if translucent processing on, not-transparent otherwise 
+				- 1/0,0,0 = solid black
+			- Semi-transparency is handled on runtime, depending on four modes:
+				- Mode 0 (50% Image, +50% Background: Average)
+				- Mode 1 (100% Image + 100% Background: Additive Blend)
+				- Mode 2 (-100% Image: inverted colors + 100% Background: Substractive Blend)
+				- Mode 3 (25% Image + 100% Background: Light Overlay/Weak Additive)
+			
+	Convert a 15bit RGB to 24bit: Leftwise Bit Shift on each color from 5 to 8 bit (so if R = b01111, we'll do b01111 << 3 = b01111000)
+
+
+ - Pixel/PXL: Actual Image Data, pixel per pixel:
+		- bnum (32-bits): PXL block length, in bytes (includes bnum size)
+		- DX (16-bits): x coordinate in framebuffer
+		- DY (16-bits): y coordinate in framebuffer -> (DX,DY) is the PXL location in VRAM
+		- W (16-bits): PXL width
+		- H (16-bits): PXL height (if image is 8-bit then W = size/2, 4-bit then W = size/4; the value needs to be integer, so 4-bit is multiple of 4 and 8-bit of 2)
+		- PXL entry (16-bits) 1~n: pixel stored in position j:
+			- Indexed Color:
+				- 4-bit mode: each 4 bits represent a pixel: the 4 bits of a pixel give its CLUT Color
+				- 8-bit mode: each byte represents a CLUT Color
+			- Direct Color:
+				- 16-bit mode: each entry is just the Color Palette entry
+				- 24-bit mode: we have 3 16-bit sets of values [(G0, R0), (R1, B0),(B1, G1)] that represent two pixels: (R0, G0, B0) is the left pixel, (R1, G1, B1) is the right
+
+
+When a file isn't .TIM: open it with Tile Molester, set the mode to 2D and play around with codecs/size until something cool is displayed
+
+Detect CLUT in random file format:
+	- 2 bytes per color
+	- size is 0x20 for 4-bit image or 0x200 for 8-bit
+	- first/last color usually 0xFFFF (white), 0x8000 (black) or 0x0000 (transparent)
+
+VRAM limit: 32 regions of 64x256 regions (so any image that takes the full size needs to be split in two)
+
+			
+			
+	
+	
+	
+	
+
+
+
+
+
+

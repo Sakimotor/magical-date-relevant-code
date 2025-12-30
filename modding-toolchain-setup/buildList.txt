@@ -1,0 +1,5 @@
+japan, header, 0x8000E800, 0x0, src/main.c, disptext.bin
+japan, header, 0x8000F380, 0x0, src/DOS.bin
+japan, exe, 0x80048fa4, 0x0, src/hook.s
+japan, exe, 0x80048d7c, 0x0, src/hook_width.s
+japan, exe, 0x800492f8, 0x0, src/hook_honorifics.s
